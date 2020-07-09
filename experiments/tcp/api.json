@@ -1,0 +1,42 @@
+[
+  {
+    "namespace": "ex_tcp",
+    "description": "Provides access to raw TCP sockets",
+    "functions": [
+      {
+        "name": "connect",
+        "description": "Creates a TCP client socket connected to the given host and port",
+        "type": "function",
+        "async": true,
+        "parameters": [
+          {
+            "name": "host",
+            "type": "string",
+            "description": "Hostname or IP address"
+          },
+          {
+            "name": "port",
+            "type": "integer",
+            "description": "TCP port number"
+          },
+          {
+            "name": "options",
+            "type": "object",
+            "description": "Options controlling socket creation",
+            "optional": true,
+            "properties": {
+              "timeout": {
+                "type": "integer",
+                "description": "Read/write timeout in seconds"
+              },
+              "connect_timeout": {
+                "type": "integer",
+                "description": "Connection timeout in seconds"
+              }
+            }
+          }
+        ]
+      }
+    ]
+  }
+]

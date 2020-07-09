@@ -1,0 +1,17 @@
+This repository contains WebExtension experiments developed for the GeneralSync
+integration add-on. If you want to see them in action, you can download the
+proprietary add-on (with unobfuscated sources!) from https://generalsync.com/
+
+The long-term goal is to get these APIs (or functional equivalents) either
+merged into Thunderbird or at least into some sort of Library where extension
+developers can get them from. Until that goal is reached, I will try to keep
+this repository in sync with the GeneralSync add-on. That being said, a more
+recent version may be available as part of the GeneralSync add-on.
+
+I tried to design the APIs in a generic way, but only specified and implemented
+parts that were necessary for GeneralSync. For example, the TCP experiment only
+covers client sockets, while it would be reasonable to also support server
+sockets through the same API – and the customui experiment only supports
+injecting UI in some selected situations where I needed it, while there are
+many other locations that could be useful for other add-ons.
+

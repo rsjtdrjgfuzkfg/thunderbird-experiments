@@ -1,0 +1,21 @@
+[
+  {
+    "namespace": "ex_osfile",
+    "description": "Provides access to native files",
+    "functions": [
+      {
+        "name": "read",
+        "description": "Reads the file with the given native path into a byte array",
+        "type": "function",
+        "async": true,
+        "parameters": [
+          {
+            "name": "path",
+            "type": "string",
+            "description": "native path to the file to read"
+          }
+        ]
+      }
+    ]
+  }
+]
