@@ -1,8 +1,5 @@
 var ex_customui = class extends ExtensionCommon.ExtensionAPI {
   getAPI(context) {
-    ChromeUtils.import(context.extension.rootURI.resolve(
-        "experiments/fixCaching.jsm")).fixCaching(context.extension);
-
     const Cc = Components.classes;
     const { Services } = ChromeUtils.import(
         "resource://gre/modules/Services.jsm");

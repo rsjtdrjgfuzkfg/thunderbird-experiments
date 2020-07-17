@@ -11,6 +11,15 @@
   "description": "A collection of WebExtension experiments used in the GeneralSync add-on, that are published under open licenses. This is not an add-on that does anything – it is only intended as reference for other Add-on developers.",
   "version": "0",
   "experiment_apis": {
+    "ex_cachingfix": {
+      "schema": "experiments/cachingfix/api.json",
+      "parent": {
+        "scopes": ["addon_parent"],
+        "paths": [["ex_cachingfix"]],
+        "script": "experiments/cachingfix/parent.js",
+        "events": ["startup"]
+      }
+    },
     "ex_customui": {
       "schema": "experiments/customui/api.json",
       "parent": {
@@ -26,11 +35,6 @@
     },
     "ex_osfile": {
       "schema": "experiments/osfile/api.json",
-      "parent": {
-        "scopes": ["addon_parent"],
-        "paths": [["ex_osfile"]],
-        "script": "experiments/osfile/parent.js"
-      },
       "child": {
         "scopes": ["addon_child"],
         "paths": [["ex_osfile"]],
@@ -39,11 +43,6 @@
     },
     "ex_runtime": {
       "schema": "experiments/runtime/api.json",
-      "parent": {
-        "scopes": ["addon_parent"],
-        "paths": [["ex_runtime"]],
-        "script": "experiments/runtime/parent.js"
-      },
       "child": {
         "scopes": ["addon_child"],
         "paths": [["ex_runtime"]],
@@ -52,11 +51,6 @@
     },
     "ex_tcp": {
       "schema": "experiments/tcp/api.json",
-      "parent": {
-        "scopes": ["addon_parent"],
-        "paths": [["ex_tcp"]],
-        "script": "experiments/tcp/parent.js"
-      },
       "child": {
         "scopes": ["addon_child"],
         "paths": [["ex_tcp"]],

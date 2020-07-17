@@ -1,0 +1,12 @@
+{
+  "experiment_apis": {
+    "ex_tcp": {
+      "schema": "experiments/tcp/api.json",
+      "child": {
+        "scopes": ["addon_child"],
+        "paths": [["ex_tcp"]],
+        "script": "experiments/tcp/child.js"
+      }
+    }
+  }
+}
