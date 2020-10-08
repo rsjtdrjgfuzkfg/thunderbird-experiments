@@ -8,47 +8,104 @@ var ex_customui = class extends ExtensionCommon.ExtensionAPI {
     const { setTimeout } = ChromeUtils.import(
         "resource://gre/modules/Timer.jsm");
 
+    const XULNS =
+        "http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul";
+
     // Window monitoring helper ===============================================
-    const windowLoadListeners = []; // called with each newly loaded DOM window
-    const loadedWindows = []; // array of all currently loaded DOM windows
+    // This permits monitoring of all kinds of windows, including those in
+    // iframes. Registered listeners are called for all loaded windows.
+    const loadedWindows = []; // array of all currently loaded windows
+    const windowLoadListeners = []; // array of all registered callbacks
     {
       let active = true;
+      const notifyListener = function(listener, window) {
+        try {
+          const listenerResult = listener(window);
+          if (listenerResult instanceof Promise) {
+            listenerResult.catch(console.error);
+          }
+        } catch(e) {
+          console.error(e);
+        }
+      };
+      let onWindowLoad;
       const windowMonitor = {
+        // This method also supports raw dom windows, in addition to the usual
+        // interface requestors
         onOpenWindow(window) {
-          // this method may be called with a interface requestor or a dom window
           if (!(window instanceof Ci.nsIDOMWindow)) {
-            window = window.QueryInterface(Ci.nsIInterfaceRequestor).getInterface(
-                Ci.nsIDOMWindow);
+            window = window.QueryInterface(
+                Ci.nsIInterfaceRequestor).getInterface(Ci.nsIDOMWindow);
           }
           if (window.document.readyState === "complete") {
-            loadedWindows.push(window);
+            onWindowLoad(window);
           } else {
-            window.addEventListener("load", () => {
-              if (!active) return; // prevent callbacks after unloading
-              loadedWindows.push(window);
-              for (let listener of windowLoadListeners) {
-                try {
-                  const listenerResult = listener(window);
-                  if (listenerResult instanceof Promise) {
-                    listenerResult.catch(console.error);
-                  }
-                } catch(e) {
-                  console.error(e);
-                }
-              }
-            }, {once: true})
+            window.addEventListener("load", () => {onWindowLoad(window);},
+                {once: true});
           }
         },
         onCloseWindow(window) {
-          window = window.QueryInterface(Ci.nsIInterfaceRequestor).getInterface(
-              Ci.nsIDOMWindow);
-          const index = loadedWindows.indexOf(window);
-          if (index >= 0) {
-            loadedWindows.splice(index, 1);
-          }
+          // not intersted (we detect closing via unloading)
         },
         onWindowTitleChange(window, title) {
            // not interested
+        }
+      };
+      const unloadEventListener = function(event) {
+        const index = loadedWindows.indexOf(event.currentTarget);
+        if (index >= 0) {
+          loadedWindows.splice(index, 1);
+        }
+      };
+      onWindowLoad = function(window) {
+        if (!active || loadedWindows.indexOf(window) >= 0) {
+          return; // we're done or did already load in this window
+        }
+        loadedWindows.push(window);
+        window.addEventListener("unload", unloadEventListener, {once: true});
+
+        // Find and monitor sub-windows in iframes
+        const isChromeIFrame = function(node) {
+          return node.tagName === "iframe" && node.namespaceURI === XULNS
+              && node.getAttribute("type") !== "content";
+        };
+        const mutationObserver = new window.MutationObserver(mutations => {
+          if (!active) {
+            // Unregister mutation observer on the next mutation after context
+            // close, as unregistering immediately would require us to keep
+            // track of all observers individually.
+            mutationObserver.disconnect();
+            return;
+          }
+          // This observation strategy could lead to observing the same window
+          // twice – but that's no problem as we only load once per window.
+          for (let mutation of mutations) {
+            if (mutation.type === "childList") {
+              for (let node of mutation.addedNodes) {
+                if (isChromeIFrame(node)) {
+                  windowMonitor.onOpenWindow(node.contentWindow);
+                }
+              }
+            } else if (mutation.type === "attributes") {
+              if (isChromeIFrame(mutation.target)
+                  && mutation.attributeName === "src") {
+                windowMonitor.onOpenWindow(mutation.target.contentWindow);
+              }
+            }
+          }
+        });
+        mutationObserver.observe(window.document,
+            { childList: true, attributes: true, subtree: true });
+        for (let iframe of window.document.getElementsByTagName("iframe")) {
+          if (isChromeIFrame(iframe)) {
+            windowMonitor.onOpenWindow(iframe.contentWindow);
+          }
+        }
+
+        // Notify listeners about this window *after* completing our
+        // registration tasks.
+        for (let listener of windowLoadListeners) {
+          notifyListener(listener, window);
         }
       };
       Services.wm.addListener(windowMonitor);
@@ -58,6 +115,9 @@ var ex_customui = class extends ExtensionCommon.ExtensionAPI {
       context.callOnClose({close(){
         active = false;
         Services.wm.removeListener(windowMonitor);
+        for (let window of loadedWindows) {
+          window.removeEventListener("unload", unloadEventListener);
+        }
       }});
     }
 
@@ -108,10 +168,13 @@ var ex_customui = class extends ExtensionCommon.ExtensionAPI {
 
     // Creates and inserts the WebExtension frame for the given URL and location
     // id as child of the given parent node (inserted before the given reference
-    // node, if any), and returns an element containing it (which can be styled
-    // to set height / with, and has a setCustomUIContextProperty(key, value)
-    // function to set structured-clone-able data on the context exposed to the
-    // WebExtension).
+    // node, if any), and returns an element containing it. The returned element
+    // can be styled (for example for positioning) and has a
+    // setCustomUIContextProperty(key, value) function to set
+    // structured-clone-able data on the context exposed to the WebExtension as
+    // well as a addCustomUILocalOptionsListener(listener) function to register
+    // functions called with local options whenever the UI document calls
+    // setLocalOptions().
     const insertWebextFrame = function(location, url, parentNode,
         referenceNode) {
       const result = parentNode.ownerDocument.createXULElement("browser");
@@ -129,6 +192,21 @@ var ex_customui = class extends ExtensionCommon.ExtensionAPI {
         uiContext[key] = value;
         fireWebextFrameEvent(result, "context", uiContext, false);
       };
+      let localOptions = {};
+      const optionsListeners = [];
+      result.addCustomUILocalOptionsListener = function(listener) {
+        optionsListeners.push(listener);
+        listener(localOptions);
+      };
+      result.messageManager.addMessageListener("ex:customui:setLocalOptions", {
+        receiveMessage(message) {
+          localOptions = message.data;
+          for (let listener of optionsListeners) {
+            listener(localOptions);
+          }
+          return true;
+        }
+      });
       result.src = url;
       return result;
     };
@@ -146,6 +224,22 @@ var ex_customui = class extends ExtensionCommon.ExtensionAPI {
       result.removeChild(frame);
       return result;
     };
+
+    // Enables dynamic height and fixed 100% width for a WebExtension frame
+    const setWebextFrameSizesForVerticalBox = function(frame, options) {
+      frame.width = "100%";
+      frame.height = (options.height || 100) + "px";
+      frame.style.display = options.hidden ? "none" : "block";
+      frame.addCustomUILocalOptionsListener(lOptions => {
+        if (typeof lOptions.height === "number") {
+          frame.height = lOptions.height + "px";
+          frame.style.height = frame.height;
+        }
+        if (typeof lOptions.hidden === "boolean") {
+          frame.style.display = lOptions.hidden ? "none" : "block";
+        }
+      });
+    }
 
     // Location-specific handlers =============================================
     const locationHandlers = {};
@@ -207,8 +301,7 @@ var ex_customui = class extends ExtensionCommon.ExtensionAPI {
           }
           const sidebar = window.document.getElementById("dirTreeBox");
           const frame = insertWebextFrame("addressbook", url, sidebar);
-          frame.width = "100%";
-          frame.height = (options.height || 100) + "px";
+          setWebextFrameSizesForVerticalBox(frame, options);
         },
         uninjectFromWindow(window, url) {
           removeWebextFrame("addressbook", url, window.document);
@@ -234,8 +327,7 @@ var ex_customui = class extends ExtensionCommon.ExtensionAPI {
             }
             const tab = window.document.getElementById(tabId);
             const frame = insertWebextFrame(locationName, url, tab);
-            frame.width = "100%";
-            frame.height = (options.height || 100) + "px";
+            setWebextFrameSizesForVerticalBox(frame, options);
 
             // Hook up the 'id' and 'parentid' context properties
             if (dialogType === 1) { // editing existing card
@@ -268,6 +360,10 @@ var ex_customui = class extends ExtensionCommon.ExtensionAPI {
                 return value ? window.GetDirectoryFromURI(value).UID : null;
               };
               frame.setCustomUIContextProperty("parentid", getDirUID());
+              // abPopup is not necessarily initialized yet, workaround:
+              window.setTimeout(() => {
+                frame.setCustomUIContextProperty("parentid", getDirUID());
+              }, 0);
               if (abPopup) {
                 abPopup.addEventListener("command", () => {
                   if (window.document.contains(frame)) {
@@ -343,11 +439,36 @@ var ex_customui = class extends ExtensionCommon.ExtensionAPI {
           }
           const sidebar = window.document.getElementById("ltnSidebar");
           const frame = insertWebextFrame("calendar", url, sidebar);
-          frame.width = "100%";
-          frame.height = (options.height || 100) + "px";
+          setWebextFrameSizesForVerticalBox(frame, options);
         },
         uninjectFromWindow(window, url) {
           removeWebextFrame("calendar", url, window.document);
+        }
+      });
+
+      // Calendar editing -----------------------------------------------------
+      const itemIframeURL =
+          "chrome://lightning/content/lightning-item-iframe.xhtml";
+      locationHandlers.calendar_event_edit = makeLocationHandler({
+        injectIntoWindow(window, url, options) {
+          if (window.location.toString() !== itemIframeURL) {
+            return; // incompatible window
+          }
+          const calendarItem = window.arguments[0].calendarEvent;
+          if (!window.cal.item.isEvent(calendarItem)) {
+            return; // item iframe for a non-event item, also incompatible
+          }
+          const tabBox = window.document.getElementById("event-grid-tab-vbox");
+          const frame = insertWebextFrame("calendar_event_edit", url,
+              tabBox.parentElement, tabBox);
+          setWebextFrameSizesForVerticalBox(frame, options);
+
+          frame.setCustomUIContextProperty("id", calendarItem.id);
+          frame.setCustomUIContextProperty("parentid",
+              calendarItem.calendar.id);
+        },
+        uninjectFromWindow(window, url) {
+          removeWebextFrame("calendar_event_edit", url, window.document);
         }
       });
     }

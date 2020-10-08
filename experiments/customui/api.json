@@ -2,6 +2,30 @@
   {
     "namespace": "ex_customui",
     "description": "Permits WebExtension code to add custom UI components to native Thunderbird features.",
+    "types": [
+      {
+        "id": "LocationOptions",
+        "type": "object",
+        "description": "Additional options how the UI shall be loaded in a given location. Which properties are supported may vary depending on the location the UI is registered for.",
+        "properties": {
+          "height": {
+            "type": "integer",
+            "optional": "true",
+            "description": "Desired total height of the custom UI component, in pixels. The actual available height may differ (and change dynamically)."
+          },
+          "width": {
+            "type": "integer",
+            "optional": "true",
+            "description": "Desired total width of the custom UI component, in pixels. The actual available height may differ (and change dynamically)."
+          },
+          "hidden": {
+            "type": "boolean",
+            "optional": "true",
+            "description": "If set to true, the custom UI component will not be visible (and thus not take up any screen space). This field is useful to selectively show or hide a component using local options."
+          }
+        }
+      }
+    ],
     "functions": [
       {
         "name": "add",
@@ -21,21 +45,9 @@
           },
           {
             "name": "options",
-            "type": "object",
+            "$ref": "LocationOptions",
             "optional": "true",
-            "description": "Additional options how the UI shall be loaded.",
-            "properties": {
-              "height": {
-                "type": "integer",
-                "optional": "true",
-                "description": "Desired total height of the custom UI component, in pixels. The actual available height may differ (and change dynamically)."
-              },
-              "width": {
-                "type": "integer",
-                "optional": "true",
-                "description": "Desired total width of the custom UI component, in pixels. The actual available height may differ (and change dynamically)."
-              }
-            }
+            "description": "Additional options how the UI shall be loaded."
           }
         ]
       },
@@ -63,6 +75,19 @@
         "type": "function",
         "async": true,
         "parameters": []
+      },
+      {
+        "name": "setLocalOptions",
+        "description": "If called from within a document loaded as custom UI through this API, this method can be used to supply location options for the current document only.",
+        "type": "function",
+        "async": "true",
+        "parameters": [
+          {
+            "name": "options",
+            "$ref": "LocationOptions",
+            "description": "Additional options how the UI shall be loaded, overriding the ones set at registration time."
+          }
+        ]
       }
     ],
     "events": [
@@ -104,6 +129,10 @@
       "LOCATION_CALENDAR": {
         "value": "calendar",
         "description": "String identifying an area permanently visisble alongside calendar features of Thunderbird (currently in the calendar tab, below the list of calendars)"
+      },
+      "LOCATION_CALENDAR_EVENT_EDIT": {
+        "value": "calendar_event_edit",
+        "description": "String identifying an area associated with the process of creating or modifying an event (currently directly in the event editing window / tab). The location is intended to eventually match the address book edit locations – once there is a calendar API in Thunderbird – but until then the context for this location contains a member 'id' with the native id of the event to edit or null for new contacts and a member 'parentid' with the native id of the calendar the dialog is operating in. It is expected that this will change in the future."
       }
     }
   }

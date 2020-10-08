@@ -55,6 +55,14 @@ var ex_customui = class extends ExtensionCommon.ExtensionAPI {
           }
           return contexts[0];
         },
+        async setLocalOptions(options) {
+          const success = context.messageManager.sendSyncMessage(
+            "ex:customui:setLocalOptions", options);
+          if (!success.length) {
+            throw new Error("setLocalOptions may only be called from within a "
+                + "custom ui");
+          }
+        },
         onEvent: new ExtensionCommon.EventManager({
           context,
           name: "ex_customui.onEvent",
