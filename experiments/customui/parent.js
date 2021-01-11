@@ -498,20 +498,20 @@ var ex_customui = class extends ExtensionCommon.ExtensionAPI {
     return {
       ex_customui: {
         async add(location, url, options) {
-          url = context.extension.baseURI.resolve(url);
           if (!locationHandlers[location]) {
-            locationHandlers.generic.onAdd(url, options || {});
-          } else {
-            locationHandlers[location].onAdd(url, options || {});
+            throw new context.cloneScope.Error("Unsupported location: "
+                + location);
           }
+          url = context.extension.baseURI.resolve(url);
+          locationHandlers[location].onAdd(url, options || {});
         },
         async remove(location, url) {
-          url = context.extension.baseURI.resolve(url);
           if (!locationHandlers[location]) {
-            locationHandlers.generic.onRemove(url);
-          } else {
-            locationHandlers.generic.onRemove(url);
+            throw new context.cloneScope.Error("Unsupported location: "
+                + location);
           }
+          url = context.extension.baseURI.resolve(url);
+          locationHandlers[location].onRemove(url);
         }
       }
     };
