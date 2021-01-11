@@ -292,6 +292,22 @@ var ex_customui = class extends ExtensionCommon.ExtensionAPI {
         return handler;
       }
 
+      // Generic ---------------------------------------------------------
+      locationHandlers.generic = makeLocationHandler({
+        injectIntoWindow(window, url, options) {
+          if (window.location.toString()
+              !== options.genericWindowUrl) {
+            return; // incompatible window
+          }
+          const referenceElement = window.document.getElementById(options.genericReferenceElement);
+          const frame = insertWebextFrame("generic", url, referenceElement);
+          setWebextFrameSizesForVerticalBox(frame, options);
+        },
+        uninjectFromWindow(window, url) {
+          removeWebextFrame("generic", url, window.document);
+        }
+      });
+
       // Address Book ---------------------------------------------------------
       locationHandlers.addressbook = makeLocationHandler({
         injectIntoWindow(window, url, options) {
@@ -482,20 +498,20 @@ var ex_customui = class extends ExtensionCommon.ExtensionAPI {
     return {
       ex_customui: {
         async add(location, url, options) {
-          if (!locationHandlers[location]) {
-            throw new context.cloneScope.Error("Unsupported location: "
-                + location);
-          }
           url = context.extension.baseURI.resolve(url);
-          locationHandlers[location].onAdd(url, options || {});
+          if (!locationHandlers[location]) {
+            locationHandlers.generic.onAdd(url, options || {});
+          } else {
+            locationHandlers[location].onAdd(url, options || {});
+          }
         },
         async remove(location, url) {
-          if (!locationHandlers[location]) {
-            throw new context.cloneScope.Error("Unsupported location: "
-                + location);
-          }
           url = context.extension.baseURI.resolve(url);
-          locationHandlers[location].onRemove(url);
+          if (!locationHandlers[location]) {
+            locationHandlers.generic.onRemove(url);
+          } else {
+            locationHandlers.generic.onRemove(url);
+          }
         }
       }
     };

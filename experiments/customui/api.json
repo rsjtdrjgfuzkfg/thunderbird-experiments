@@ -22,6 +22,16 @@
             "type": "boolean",
             "optional": "true",
             "description": "If set to true, the custom UI component will not be visible (and thus not take up any screen space). This field is useful to selectively show or hide a component using local options."
+          },
+          "genericWindowUrl": {
+            "type": "string",
+            "optional": "true",
+            "description": "If the generic location is used, this parameter is specifiying the URL of the window the iframe should be added to."
+          },
+          "genericReferenceElement": {
+            "type": "string",
+            "optional": "true",
+            "description": "If the generic location is used, this parameter is specifiying the reference element after which the iframe should be added."
           }
         }
       }
@@ -110,6 +120,10 @@
       }
     ],
     "properties": {
+      "LOCATION_GENERIC": {
+        "value": "generic",
+        "description": "String identifying a multipurpose location, allowing to add the iframe to the window specified in options.genericWindowUrl."
+      },
       "LOCATION_ADDRESSBOOK": {
         "value": "addressbook",
         "description": "String identifying an area permanently visible alongside address book features of Thunderbird (currently in the address book window, below the list of address books)"
