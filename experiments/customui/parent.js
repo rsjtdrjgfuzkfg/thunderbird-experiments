@@ -309,16 +309,17 @@ var ex_customui = class extends ExtensionCommon.ExtensionAPI {
           const query = window.dialog.mLauncher.source.query;
           for (const part of query.split("&")) {
             const [key,value] = part.split("=");
-            data[key] = decodeURIComponent(value);
+            // we only want to extract filename and type
+            if (["filename","type"].includes(key)) {
+              data[key] = decodeURIComponent(value);
+            }
           }
 
           const container = window.document.getElementById("container");
           const frame = insertWebextFrame("unknown_file_action", url, container);
           setWebextFrameSizesForVerticalBox(frame, options);
           for (const [key, value] of Object.entries(data)) {
-            if (["filename","type"].includes(key)) {
-              frame.setCustomUIContextProperty(key, value);
-            }
+            frame.setCustomUIContextProperty(key, value);
           }
         },
         uninjectFromWindow(window, url) {
