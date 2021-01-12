@@ -110,6 +110,10 @@
       }
     ],
     "properties": {
+      "LOCATION_UNKNOWN_FILE_ACTION": {
+        "value": "unknown_file_action",
+        "description": "String identifying an area visible at the bottom of the unknown file action dialog (open or save prompt)."
+      },
       "LOCATION_ADDRESSBOOK": {
         "value": "addressbook",
         "description": "String identifying an area permanently visible alongside address book features of Thunderbird (currently in the address book window, below the list of address books)"
