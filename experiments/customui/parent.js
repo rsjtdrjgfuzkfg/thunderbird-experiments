@@ -292,19 +292,83 @@ var ex_customui = class extends ExtensionCommon.ExtensionAPI {
         return handler;
       }
 
-      // Generic ---------------------------------------------------------
-      locationHandlers.generic = makeLocationHandler({
-        injectIntoWindow(window, url, options) {
+      // Legacy ---------------------------------------------------------
+      locationHandlers.legacy = makeLocationHandler({
+        async injectIntoWindow(window, url, options) {
+          for (let field of ["windowUrl", "glueScript"]) {
+            if (!options.hasOwnProperty("config") ||
+              !options.config.hasOwnProperty(field)) {
+                throw new context.cloneScope.Error(`The location "LOCATION_LEGACY" requires "options.config.${field}" to be specified.`);
+                return;
+            }
+          }
+          
           if (window.location.toString()
-              !== options.genericWindowUrl) {
+              !== options.config.windowUrl) {
             return; // incompatible window
           }
-          const referenceElement = window.document.getElementById(options.genericReferenceElement);
-          const frame = insertWebextFrame("generic", url, referenceElement);
+
+          let customData = {};
+          if (options.config.glueScript) {
+            let scope = {};
+            //Note: It appears that script loaded via extension.rootURI.resolve are not cleared by startupcacheinvalidate (???)
+            Services.scriptloader.loadSubScript(context.extension.getURL(options.config.glueScript), scope, "UTF-8");
+            customData = await scope.init(window);
+          }
+          
+          // The referenceElement could be returned by the glue script as well
+          const referenceElementName = null || customData.referenceElement || options.config.referenceElement;
+          if (!referenceElementName) {
+                throw new context.cloneScope.Error(`The location "LOCATION_LEGACY" requires "options.config.referenceElement" to be specified. Alternatively the customData object returned by the glue script must include a "referenceElement" member.`);
+                return;
+          }
+          const referenceElement = window.document.getElementById(options.config.referenceElement);
+          if (!referenceElement) {
+            throw new context.cloneScope.Error(`The specified reference element "${referenceElementName}" does not exist.`);
+            return;
+          }
+          
+          const frame = insertWebextFrame("legacy", url, referenceElement);
           setWebextFrameSizesForVerticalBox(frame, options);
+          for (const [key, value] of Object.entries(customData)) {
+            frame.setCustomUIContextProperty(key, value);
+          }
+          
         },
         uninjectFromWindow(window, url) {
-          removeWebextFrame("generic", url, window.document);
+          removeWebextFrame("legacy", url, window.document);
+        }
+      });
+
+      // Unknown Download Location---------------------------------------------
+      locationHandlers.unknown_download_location = makeLocationHandler({
+        injectIntoWindow(window, url, options) {
+          if (window.location.toString()
+              !== "chrome://mozapps/content/downloads/unknownContentType.xhtml") {
+            return; // incompatible window
+          }
+          
+          let data = {
+            // the url from the dialog
+            url: window.dialog.mLauncher.source.spec,
+          };
+          
+          // just the query, for example "part=1.2&type=image/jpeg&filename=IMG_0101.jpg"
+          const query = window.dialog.mLauncher.source.query;
+          for (const part of query.split("&")) {
+            const [key,value] = part.split("=");
+            data[key] = decodeURIComponent(value);
+          }
+
+          const container = window.document.getElementById("container");
+          const frame = insertWebextFrame("unknown_download_location", url, container);
+          setWebextFrameSizesForVerticalBox(frame, options);
+          for (const [key, value] of Object.entries(data)) {
+            frame.setCustomUIContextProperty(key, value);
+          }
+        },
+        uninjectFromWindow(window, url) {
+          removeWebextFrame("addressbook", url, window.document);
         }
       });
 
@@ -515,5 +579,12 @@ var ex_customui = class extends ExtensionCommon.ExtensionAPI {
         }
       }
     };
+  }
+
+  onShutdown(isAppShutdown) {
+    if (isAppShutdown)
+      return;
+    // Flush all caches (needed for legacy location, which loads a glue script)
+    Services.obs.notifyObservers(null, "startupcache-invalidate");
   }
 };
