@@ -301,20 +301,11 @@ var ex_customui = class extends ExtensionCommon.ExtensionAPI {
           }
           
           let data = {
-            // the url of the file
             url: window.dialog.mLauncher.source.spec,
+            type: window.dialog.mLauncher.MIMEInfo.MIMEType,
+            filename: window.dialog.mLauncher.suggestedFileName
           };
           
-          // just the query, for example "part=1.2&type=image/jpeg&filename=IMG_0101.jpg"
-          const query = window.dialog.mLauncher.source.query;
-          for (const part of query.split("&")) {
-            const [key,value] = part.split("=");
-            // we only want to extract filename and type
-            if (["filename","type"].includes(key)) {
-              data[key] = decodeURIComponent(value);
-            }
-          }
-
           const container = window.document.getElementById("container");
           const frame = insertWebextFrame("unknown_file_action", url, container);
           setWebextFrameSizesForVerticalBox(frame, options);
