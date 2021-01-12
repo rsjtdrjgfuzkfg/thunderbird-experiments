@@ -292,32 +292,6 @@ var ex_customui = class extends ExtensionCommon.ExtensionAPI {
         return handler;
       }
 
-      // unknown_file_action --------------------------------------------------
-      locationHandlers.unknown_file_action = makeLocationHandler({
-        injectIntoWindow(window, url, options) {
-          if (window.location.toString()
-              !== "chrome://mozapps/content/downloads/unknownContentType.xhtml") {
-            return; // incompatible window
-          }
-          
-          let data = {
-            url: window.dialog.mLauncher.source.spec,
-            type: window.dialog.mLauncher.MIMEInfo.MIMEType,
-            filename: window.dialog.mLauncher.suggestedFileName
-          };
-          
-          const container = window.document.getElementById("container");
-          const frame = insertWebextFrame("unknown_file_action", url, container);
-          setWebextFrameSizesForVerticalBox(frame, options);
-          for (const [key, value] of Object.entries(data)) {
-            frame.setCustomUIContextProperty(key, value);
-          }
-        },
-        uninjectFromWindow(window, url) {
-          removeWebextFrame("unknown_file_action", url, window.document);
-        }
-      });
-
       // Address Book ---------------------------------------------------------
       locationHandlers.addressbook = makeLocationHandler({
         injectIntoWindow(window, url, options) {
@@ -495,6 +469,30 @@ var ex_customui = class extends ExtensionCommon.ExtensionAPI {
         },
         uninjectFromWindow(window, url) {
           removeWebextFrame("calendar_event_edit", url, window.document);
+        }
+      });
+
+      // Dialog when opening files with unknown content type ------------------
+      locationHandlers.unknown_file_action = makeLocationHandler({
+        injectIntoWindow(window, url, options) {
+          if (window.location.toString() !== "chrome://mozapps/content/"
+              + "downloads/unknownContentType.xhtml") {
+            return; // incompatible window
+          }
+          const container = window.document.getElementById("container");
+          const frame = insertWebextFrame("unknown_file_action", url,
+              container);
+          setWebextFrameSizesForVerticalBox(frame, options);
+
+          frame.setCustomUIContextProperty("url",
+              window.dialog.mLauncher.source.spec);
+          frame.setCustomUIContextProperty("type",
+              window.dialog.mLauncher.MIMEInfo.MIMEType);
+          frame.setCustomUIContextProperty("filename",
+              window.dialog.mLauncher.suggestedFileName);
+        },
+        uninjectFromWindow(window, url) {
+          removeWebextFrame("unknown_file_action", url, window.document);
         }
       });
     }
