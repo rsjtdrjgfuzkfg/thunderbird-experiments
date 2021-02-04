@@ -7,6 +7,8 @@ var ex_customui = class extends ExtensionCommon.ExtensionAPI {
         "resource://gre/modules/ExtensionParent.jsm");
     const { setTimeout } = ChromeUtils.import(
         "resource://gre/modules/Timer.jsm");
+    const { E10SUtils } = ChromeUtils.import(
+        "resource://gre/modules/E10SUtils.jsm");
 
     const XULNS =
         "http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul";
@@ -183,6 +185,14 @@ var ex_customui = class extends ExtensionCommon.ExtensionAPI {
       result.setAttribute("disablehistory", "true");
       result.setAttribute("id", "customui-" + location + "-"
           + context.contextId + "-" + url);
+      result.setAttribute("initialBrowsingContextGroupId",
+          context.extension.policy.browsingContextGroupId);
+      if (context.extension.remote) {
+        result.setAttribute("remote", "true");
+        result.setAttribute("remoteType", E10SUtils.getRemoteTypeForURI(url,
+            true, false, E10SUtils.EXTENSION_REMOTE_TYPE, null,
+            E10SUtils.predictOriginAttributes({ result })));
+      }
       parentNode.insertBefore(result, referenceNode || null);
       ExtensionParent.apiManager.emit("extension-browser-inserted", result);
       const uiContext = {location};
