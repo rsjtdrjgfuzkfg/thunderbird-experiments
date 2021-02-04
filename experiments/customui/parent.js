@@ -27,7 +27,7 @@ var ex_customui = class extends ExtensionCommon.ExtensionAPI {
             listenerResult.catch(console.error);
           }
         } catch(e) {
-          console.error(e);
+          Components.utils.reportError(e);
         }
       };
       let onWindowLoad;
@@ -479,6 +479,50 @@ var ex_customui = class extends ExtensionCommon.ExtensionAPI {
         },
         uninjectFromWindow(window, url) {
           removeWebextFrame("calendar_event_edit", url, window.document);
+        }
+      });
+
+      // Sidebar in the message composer
+      locationHandlers.compose_sidebar = makeLocationHandler({
+        injectIntoWindow(window, url, options) {
+          if (window.location.toString() !== "chrome://messenger/content/"
+              + "messengercompose/messengercompose.xhtml") {
+            return; // incompatible window
+          }
+          const sidebarBoxName = "right-sidebar-box";
+          let sidebar = window.document.getElementById(sidebarBoxName);
+          if (!sidebar) {
+            const container = window.document.getElementById("composeContentBox");
+
+            let splitter = window.document.createXULElement("splitter");
+            splitter.id = "right-sidebar-box-splitter";
+            splitter.style["border-inline-end-width"] = "0";
+            splitter.style["border-inline-start"] = "1px solid var(--splitter-color)";
+            splitter.style["min-width"] = "0";
+            splitter.style["width"] = "5px";
+            splitter.style["background-color"] = "transparent";
+            splitter.style["margin-inline-end"] = "-5px";
+            splitter.style["position"] = "relative";
+            container.appendChild(splitter);           
+            
+            sidebar = window.document.createXULElement("vbox");
+            sidebar.setAttribute("persist", "width");
+            sidebar.setAttribute("width", "244");
+            sidebar.id = sidebarBoxName;
+            container.appendChild(sidebar);
+          }
+          const frame = insertWebextFrame("compose_sidebar", url,
+              sidebar);
+          frame.flex = "1";
+        },
+        uninjectFromWindow(window, url) {
+          removeWebextFrame("compose_sidebar", url, window.document);
+          const sidebarBoxName = "right-sidebar-box";
+          const sidebar = window.document.getElementById(sidebarBoxName);
+          if (sidebar && sidebar.childElementCount == 0) {
+            sidebar.remove();
+            window.document.getElementById(`${sidebarBoxName}-splitter`).remove();
+          }
         }
       });
 
