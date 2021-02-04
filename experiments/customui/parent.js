@@ -182,7 +182,7 @@ var ex_customui = class extends ExtensionCommon.ExtensionAPI {
       result.setAttribute("transparent", "true");
       result.setAttribute("disablehistory", "true");
       result.setAttribute("id", "customui-" + location + "-"
-          + context.contextid + "-" + url);
+          + context.contextId + "-" + url);
       parentNode.insertBefore(result, referenceNode || null);
       ExtensionParent.apiManager.emit("extension-browser-inserted", result);
       const uiContext = {location};
@@ -216,7 +216,7 @@ var ex_customui = class extends ExtensionCommon.ExtensionAPI {
     // frame.
     const removeWebextFrame = function(tag, url, document) {
       const frame = document.getElementById("customui-" + tag + "-"
-          + context.contextid + "-" + url);
+          + context.contextId + "-" + url);
       if (!frame) {
         return null;
       }
