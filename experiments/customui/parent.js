@@ -249,7 +249,53 @@ var ex_customui = class extends ExtensionCommon.ExtensionAPI {
           frame.style.display = lOptions.hidden ? "none" : "block";
         }
       });
-    }
+    };
+    
+    // Creates and inserts the WebExtension frame for the given URL and location
+    // id as element of a customUI-specific sidebar within the container given
+    // by a document and the container's id. Returns an element containing the
+    // new frame and supporting all functions documented for
+    // insertWebextFrame(). To remove frames created by this method, use
+    // removeSidebarWebextFrame().
+    const insertSidebarWebextFrame = function(location, url, document,
+        containerId) {
+      const sidebarBoxId = "customUI-sidebar-box-" + containerId;
+      let sidebar = document.getElementById(sidebarBoxId);
+      if (!sidebar) {
+        const container = document.getElementById(containerId);
+
+        const splitter = document.createXULElement("splitter");
+        splitter.style["border-inline-end-width"] = "0";
+        splitter.style["border-inline-start"] =
+            "1px solid var(--splitter-color)";
+        splitter.style["min-width"] = "0";
+        splitter.style["width"] = "5px";
+        splitter.style["background-color"] = "transparent";
+        splitter.style["margin-inline-end"] = "-5px";
+        splitter.style["position"] = "relative";
+        container.appendChild(splitter);           
+        
+        sidebar = document.createXULElement("vbox");
+        sidebar.setAttribute("persist", "width");
+        sidebar.setAttribute("width", "244");
+        sidebar.id = sidebarBoxId;
+        container.appendChild(sidebar);
+      }
+      const result = insertWebextFrame(location, url, sidebar);
+      result.flex = "1";
+      return result;
+    };
+
+    // Removes the WebExtension frame with the given tag and URL from the given
+    // document, and returns its parent node (or null if there is no such
+    // frame.
+    const removeSidebarWebextFrame = function(tag, url, document) {
+      const sidebar = removeWebextFrame(tag, url, document);
+      if (sidebar && sidebar.childElementCount == 0) {
+        sidebar.previousSibling.remove(); // splitter
+        sidebar.remove();
+      }
+    };
 
     // Location-specific handlers =============================================
     const locationHandlers = {};
@@ -489,39 +535,11 @@ var ex_customui = class extends ExtensionCommon.ExtensionAPI {
               + "messengercompose/messengercompose.xhtml") {
             return; // incompatible window
           }
-          const sidebarBoxName = "customUI-sidebar-box";
-          let sidebar = window.document.getElementById(sidebarBoxName);
-          if (!sidebar) {
-            const container = window.document.getElementById("composeContentBox");
-
-            let splitter = window.document.createXULElement("splitter");
-            splitter.id = "customUI-sidebar-box-splitter";
-            splitter.style["border-inline-end-width"] = "0";
-            splitter.style["border-inline-start"] = "1px solid var(--splitter-color)";
-            splitter.style["min-width"] = "0";
-            splitter.style["width"] = "5px";
-            splitter.style["background-color"] = "transparent";
-            splitter.style["margin-inline-end"] = "-5px";
-            splitter.style["position"] = "relative";
-            container.appendChild(splitter);           
-            
-            sidebar = window.document.createXULElement("vbox");
-            sidebar.setAttribute("persist", "width");
-            sidebar.setAttribute("width", "244");
-            sidebar.id = sidebarBoxName;
-            container.appendChild(sidebar);
-          }
-          const frame = insertWebextFrame("compose", url, sidebar);
-          frame.flex = "1";
+          insertSidebarWebextFrame("compose", url, window.document,
+              "composeContentBox");
         },
         uninjectFromWindow(window, url) {
-          removeWebextFrame("compose", url, window.document);
-          const sidebarBoxName = "customUI-sidebar-box";
-          const sidebar = window.document.getElementById(sidebarBoxName);
-          if (sidebar && sidebar.childElementCount == 0) {
-            sidebar.remove();
-            window.document.getElementById(`${sidebarBoxName}-splitter`).remove();
-          }
+          removeSidebarWebextFrame("compose", url, window.document);
         }
       });
       
@@ -532,40 +550,11 @@ var ex_customui = class extends ExtensionCommon.ExtensionAPI {
               + "messenger.xhtml") {
             return; // incompatible window
           }
-          const sidebarBoxName = "customUI-sidebar-box";
-          let sidebar = window.document.getElementById(sidebarBoxName);
-          if (!sidebar) {
-            const container = window.document.getElementById("messengerBox");
-            console.log(container);
-            
-            let splitter = window.document.createXULElement("splitter");
-            splitter.id = "customUI-sidebar-box-splitter";
-            splitter.style["border-inline-end-width"] = "0";
-            splitter.style["border-inline-start"] = "1px solid var(--splitter-color)";
-            splitter.style["min-width"] = "0";
-            splitter.style["width"] = "5px";
-            splitter.style["background-color"] = "transparent";
-            splitter.style["margin-inline-end"] = "-5px";
-            splitter.style["position"] = "relative";
-            container.appendChild(splitter);           
-            
-            sidebar = window.document.createXULElement("vbox");
-            sidebar.setAttribute("persist", "width");
-            sidebar.setAttribute("width", "244");
-            sidebar.id = sidebarBoxName;
-            container.appendChild(sidebar);
-          }
-          const frame = insertWebextFrame("messaging", url, sidebar);
-          frame.flex = "1";
+          insertSidebarWebextFrame("messaging", url, window.document,
+              "messengerBox");
         },
         uninjectFromWindow(window, url) {
-          removeWebextFrame("messaging", url, window.document);
-          const sidebarBoxName = "customUI-sidebar-box";
-          const sidebar = window.document.getElementById(sidebarBoxName);
-          if (sidebar && sidebar.childElementCount == 0) {
-            sidebar.remove();
-            window.document.getElementById(`${sidebarBoxName}-splitter`).remove();
-          }
+          removeSidebarWebextFrame("messaging", url, window.document);
         }
       });
 
