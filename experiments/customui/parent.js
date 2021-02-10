@@ -489,13 +489,13 @@ var ex_customui = class extends ExtensionCommon.ExtensionAPI {
               + "messengercompose/messengercompose.xhtml") {
             return; // incompatible window
           }
-          const sidebarBoxName = "right-sidebar-box";
+          const sidebarBoxName = "customUI-sidebar-box";
           let sidebar = window.document.getElementById(sidebarBoxName);
           if (!sidebar) {
             const container = window.document.getElementById("composeContentBox");
 
             let splitter = window.document.createXULElement("splitter");
-            splitter.id = "right-sidebar-box-splitter";
+            splitter.id = "customUI-sidebar-box-splitter";
             splitter.style["border-inline-end-width"] = "0";
             splitter.style["border-inline-start"] = "1px solid var(--splitter-color)";
             splitter.style["min-width"] = "0";
@@ -517,7 +517,7 @@ var ex_customui = class extends ExtensionCommon.ExtensionAPI {
         },
         uninjectFromWindow(window, url) {
           removeWebextFrame("compose_sidebar", url, window.document);
-          const sidebarBoxName = "right-sidebar-box";
+          const sidebarBoxName = "customUI-sidebar-box";
           const sidebar = window.document.getElementById(sidebarBoxName);
           if (sidebar && sidebar.childElementCount == 0) {
             sidebar.remove();
