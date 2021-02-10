@@ -482,8 +482,8 @@ var ex_customui = class extends ExtensionCommon.ExtensionAPI {
         }
       });
 
-      // Sidebar in the message composer
-      locationHandlers.compose_sidebar = makeLocationHandler({
+      // Message composition --------------------------------------------------
+      locationHandlers.compose = makeLocationHandler({
         injectIntoWindow(window, url, options) {
           if (window.location.toString() !== "chrome://messenger/content/"
               + "messengercompose/messengercompose.xhtml") {
@@ -511,12 +511,11 @@ var ex_customui = class extends ExtensionCommon.ExtensionAPI {
             sidebar.id = sidebarBoxName;
             container.appendChild(sidebar);
           }
-          const frame = insertWebextFrame("compose_sidebar", url,
-              sidebar);
+          const frame = insertWebextFrame("compose", url, sidebar);
           frame.flex = "1";
         },
         uninjectFromWindow(window, url) {
-          removeWebextFrame("compose_sidebar", url, window.document);
+          removeWebextFrame("compose", url, window.document);
           const sidebarBoxName = "customUI-sidebar-box";
           const sidebar = window.document.getElementById(sidebarBoxName);
           if (sidebar && sidebar.childElementCount == 0) {
@@ -526,8 +525,8 @@ var ex_customui = class extends ExtensionCommon.ExtensionAPI {
         }
       });
       
-      // Sidebar in the main Thunderbird window
-      locationHandlers.mail3pane_sidebar = makeLocationHandler({
+      // Messaging ------------------------------------------------------------
+      locationHandlers.messaging = makeLocationHandler({
         injectIntoWindow(window, url, options) {
           if (window.location.toString() !== "chrome://messenger/content/"
               + "messenger.xhtml") {
@@ -556,12 +555,11 @@ var ex_customui = class extends ExtensionCommon.ExtensionAPI {
             sidebar.id = sidebarBoxName;
             container.appendChild(sidebar);
           }
-          const frame = insertWebextFrame("mail3pane_sidebar", url,
-              sidebar);
+          const frame = insertWebextFrame("messaging", url, sidebar);
           frame.flex = "1";
         },
         uninjectFromWindow(window, url) {
-          removeWebextFrame("mail3pane_sidebar", url, window.document);
+          removeWebextFrame("messaging", url, window.document);
           const sidebarBoxName = "customUI-sidebar-box";
           const sidebar = window.document.getElementById(sidebarBoxName);
           if (sidebar && sidebar.childElementCount == 0) {
