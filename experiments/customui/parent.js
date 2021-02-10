@@ -259,7 +259,7 @@ var ex_customui = class extends ExtensionCommon.ExtensionAPI {
     // removeSidebarWebextFrame().
     const insertSidebarWebextFrame = function(location, url, document,
         containerId) {
-      const sidebarBoxId = "customUI-sidebar-box-" + containerId;
+      const sidebarBoxId = "customui-sidebar-box-" + containerId;
       let sidebar = document.getElementById(sidebarBoxId);
       if (!sidebar) {
         const container = document.getElementById(containerId);
