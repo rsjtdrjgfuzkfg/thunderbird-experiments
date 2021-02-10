@@ -138,6 +138,10 @@
         "value": "compose_sidebar",
         "description": "String identifying an area permanently visible to the right side of the message compose window."
       },
+      "LOCATION_SIDEBAR": {
+        "value": "mail3pane_sidebar",
+        "description": "String identifying a sidebar in the main Thunderbird window."
+      },
       "LOCATION_UNKNOWN_FILE_ACTION": {
         "value": "unknown_file_action",
         "description": "String identifying an area visible at the bottom of the unknown file action dialog (open or save prompt). The context for this location contains the members 'url' with the file's URL, 'filename' with a suggested filename and 'type' with the MIME type of the file."
