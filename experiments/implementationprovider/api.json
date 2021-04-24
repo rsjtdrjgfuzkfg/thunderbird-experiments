@@ -1,0 +1,45 @@
+[
+  {
+    "namespace": "ex_implementationprovider",
+    "description": "Permits WebExtensions to register JavaScript class definitions, which can then be instantiated and used by native Thunderbird code in the parent process.",
+    "types": [
+      {
+        "id": "Constructable",
+        "type": "function",
+        "description": "A constructable JavaScript function (usually, a class constructor)."
+      },
+      {
+        "id": "ProviderInterface",
+        "type": "object",
+        "description": "An object passed to constructable functions when instantiating them for use in the parent process, providing some features beyond async functions with arguments and return values compatible with structured clone.",
+        "properties": {
+          "notifyListeners": {
+            "type": "function",
+            "description": "Calls any method with the given name (first argument) on all listener objects with the remaining arguments. Listener object registration occurs through addListener/removeListener methods that are created by the API. Returns a promise that resolves once all listeners have returned (await it if you rely on listeners to do something, or ignore it if you don't – error logging is handled by the API, so there is usually no hard need to observe failures)."
+          }
+        }
+      }
+    ],
+    "functions": [
+      {
+        "name": "provideImplementation",
+        "description": "Registers an implementation for the given name. The registration will expire if the calling context dies – so usually, this method should usually be called from a long-lived context like a background page.",
+        "type": "function",
+        "async": true,
+        "parameters": [
+          {
+            "name": "name",
+            "type": "string",
+            "description": "An unique string identifying the implementation to register. Any previously registered implementation with the same name – in any scope of the same add-on – will get unregistered."
+          },
+          {
+            "name": "implementation",
+            "$ref": "Constructable",
+            "description": "Constructor to register as implementation, or null to unregister the current implementation without registering a new one. For this proof of concept, any constructable function is accepted; the constructor will be called with a ProviderInterface instance as first argument, followed by any constructor arguments passed from the invoker in the parent process. Real-world APIs will likely require specific contracts to be implemented (for example by inheriting from a class provided as part of the API) and have more clear specifications for constructor arguments.",
+            "optional": true
+          }
+        ]
+      }
+    ]
+  }
+]

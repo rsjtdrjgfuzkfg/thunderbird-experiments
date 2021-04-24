@@ -1,0 +1,17 @@
+{
+  "experiment_apis": {
+    "ex_implementationprovider": {
+      "schema": "experiments/implementationprovider/api.json",
+      "parent": {
+        "scopes": ["addon_parent"],
+        "paths": [["ex_implementationprovider"]],
+        "script": "experiments/implementationprovider/parent.js"
+      },
+      "child": {
+        "scopes": ["addon_child"],
+        "paths": [["ex_implementationprovider"]],
+        "script": "experiments/implementationprovider/child.js"
+      }
+    }
+  }
+}
