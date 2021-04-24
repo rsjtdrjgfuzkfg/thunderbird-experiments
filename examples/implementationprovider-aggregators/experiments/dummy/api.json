@@ -1,0 +1,6 @@
+[
+  {
+    "namespace": "ex_dummy",
+    "description": "This experiment contains the native part of the example, demonstrating use of the implementations provided from the background script in the parent process."
+  }
+]
