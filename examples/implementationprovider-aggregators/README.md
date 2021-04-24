@@ -1,6 +1,6 @@
 # ImplementationProvider: Aggregators Example
 
-**You must use a version of git that supports symbolic links or copy the customui experiment into the experiments folder to use this example.**
+**You must use a version of git that supports symbolic links or copy the implementationprovider and cachingfix experiments into the experiments folder to use this example.**
 
 This example showcases using classes defined on a WebExtension background page from an experiment's parent script: it features two distinct classes that operate on a similar interface, hold state and have side-effects (in pure WebExtension code).
 
