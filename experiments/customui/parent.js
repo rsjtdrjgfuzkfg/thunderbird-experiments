@@ -183,6 +183,8 @@ var ex_customui = class extends ExtensionCommon.ExtensionAPI {
       result.setAttribute("type", "content");
       result.setAttribute("transparent", "true");
       result.setAttribute("disablehistory", "true");
+      result.setAttribute("messagemanagergroup", "webext-browsers");
+      result.setAttribute("webextension-view-type", "customui");
       result.setAttribute("id", "customui-" + location + "-"
           + context.contextId + "-" + url);
       result.setAttribute("initialBrowsingContextGroupId",
@@ -192,9 +194,22 @@ var ex_customui = class extends ExtensionCommon.ExtensionAPI {
         result.setAttribute("remoteType", E10SUtils.getRemoteTypeForURI(url,
             true, false, E10SUtils.EXTENSION_REMOTE_TYPE, null,
             E10SUtils.predictOriginAttributes({ result })));
+        result.setAttribute("maychangeremoteness", "true");
       }
       parentNode.insertBefore(result, referenceNode || null);
-      ExtensionParent.apiManager.emit("extension-browser-inserted", result);
+      const initBrowser = () => {
+        ExtensionParent.apiManager.emit("extension-browser-inserted", result);
+        result.messageManager.loadFrameScript(
+            "chrome://extensions/content/ext-browser-content.js", false, true);
+        result.messageManager.sendAsyncMessage("Extension:InitBrowser",
+            { stylesheets: ExtensionParent.extensionStylesheets });
+      }
+      if (context.extension.remote) {
+        result.addEventListener("DidChangeBrowserRemoteness", initBrowser);
+        result.addEventListener("XULFrameLoaderCreated", initBrowser);
+      } else {
+        initBrowser();
+      }
       const uiContext = {location};
       result.messageManager.addMessageListener("ex:customui:getContext",
           {receiveMessage(message) { return uiContext; }});
