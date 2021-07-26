@@ -18,19 +18,15 @@ var ex_runtime = class extends ExtensionCommon.ExtensionAPI {
               if (addon.id !== context.extension.id) {
                 return;
               }
-              const promise = fire.sync();
-              if (promise && promise.then) {
-                // listener started some async operation, wait up to 5 seconds
-                // for its resolution.
-                let done = false;
-                promise.then(() => done = true).catch(e => {
-                  console.error(e);
-                  done = true;
-                });
-                setTimeout(() => done = true, 5000);
-                while (!done) {
-                  tManager.currentThread.processNextEvent(true);
-                }
+              // the API we're using here is synchronous, and getting that
+              // to play nice with an async event in a scope that dies once we
+              // return would be a pain. For now, do the dirty thing and delay
+              // for a second.
+              fire.async();
+              let done = false;
+              setTimeout(() => done = true, 1000);
+              while (!done) {
+                tManager.currentThread.processNextEvent(true);
               }
             };
             const listener = {

@@ -2,10 +2,10 @@
   "experiment_apis": {
     "ex_runtime": {
       "schema": "experiments/runtime/api.json",
-      "child": {
-        "scopes": ["addon_child"],
+      "parent": {
+        "scopes": ["addon_parent"],
         "paths": [["ex_runtime"]],
-        "script": "experiments/runtime/child.js"
+        "script": "experiments/runtime/parent.js"
       }
     }
   }
