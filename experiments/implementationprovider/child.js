@@ -4,15 +4,15 @@ var ex_implementationprovider = class extends ExtensionCommon.ExtensionAPI {
       return; // the application gets unloaded anyway
     }
     // Unload child-loaded JSMs as they do not get unloaded by cachingfix
-    Components.utils.unload(this.extension.baseURI.resolve(
-          "experiments/implementationprovider/AsyncMessageManagerLink.jsm"));
+    Components.utils.unload(this.extension.policy.baseURL
+          + "experiments/implementationprovider/AsyncMessageManagerLink.jsm");
   }
 
   getAPI(context) {
     const Cu = Components.utils;
     const { AsyncMessageManagerLink } = ChromeUtils.import(
-        this.extension.baseURI.resolve(
-          "experiments/implementationprovider/AsyncMessageManagerLink.jsm"));
+        this.extension.policy.baseURL
+        + "experiments/implementationprovider/AsyncMessageManagerLink.jsm");
     const { ExtensionUtils } = ChromeUtils.import(
       "resource://gre/modules/ExtensionUtils.jsm"
     );
@@ -32,10 +32,11 @@ var ex_implementationprovider = class extends ExtensionCommon.ExtensionAPI {
     // heuristics we're going to use:
     const getFunctionsForConstructed = function(constructed) {
       const result = [];
-      const objectPrototype = Cu.waiveXrays(
-          context.cloneScope.Object.prototype);
+      const ignoredPrototypes = [Cu.waiveXrays(
+          context.cloneScope.Object.prototype),
+          context.cloneScope.Object.prototype, Object.prototype];
       let prototype = constructed;
-      while (prototype != null && prototype != objectPrototype) {
+      while (prototype != null && ignoredPrototypes.indexOf(prototype) < 0) {
         for (let key of Object.getOwnPropertyNames(prototype)) {
           if ((typeof prototype[key]) == "function") {
             result.push(key);

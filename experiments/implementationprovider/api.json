@@ -23,7 +23,7 @@
     "functions": [
       {
         "name": "provideImplementation",
-        "description": "Registers an implementation for the given name. The registration will expire if the calling context dies – so usually, this method should usually be called from a long-lived context like a background page.",
+        "description": "Registers an implementation for the given name. The registration will expire if the calling context dies – so usually, this method should be called from a long-lived context like a background page.",
         "type": "function",
         "async": true,
         "parameters": [
