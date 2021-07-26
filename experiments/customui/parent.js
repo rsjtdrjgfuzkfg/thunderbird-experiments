@@ -508,7 +508,8 @@ var ex_customui = class extends ExtensionCommon.ExtensionAPI {
               !== "chrome://messenger/content/messenger.xhtml") {
             return; // incompatible window
           }
-          const sidebar = window.document.getElementById("ltnSidebar");
+          const sidebar = window.document.getElementById("calSidebar") // TB 91+
+              || window.document.getElementById("ltnSidebar"); // earlier
           const frame = insertWebextFrame("calendar", url, sidebar);
           setWebextFrameSizesForVerticalBox(frame, options);
         },
@@ -518,15 +519,19 @@ var ex_customui = class extends ExtensionCommon.ExtensionAPI {
       });
 
       // Calendar editing -----------------------------------------------------
-      const itemIframeURL =
-          "chrome://lightning/content/lightning-item-iframe.xhtml";
+      const itemIframeURLs = [
+        "chrome://calendar/content/calendar-item-iframe.xhtml", // TB 91+
+        "chrome://lightning/content/lightning-item-iframe.xhtml" // earlier
+      ];
       locationHandlers.calendar_event_edit = makeLocationHandler({
         injectIntoWindow(window, url, options) {
-          if (window.location.toString() !== itemIframeURL) {
+          if (itemIframeURLs.indexOf(window.location.toString()) < 0) {
             return; // incompatible window
           }
           const calendarItem = window.arguments[0].calendarEvent;
-          if (!window.cal.item.isEvent(calendarItem)) {
+          if (!((calendarItem.isEvent && calendarItem.isEvent()) // TB 87+
+                || window.cal.item.isEvent(calendarItem) // earlier
+              )) {
             return; // item iframe for a non-event item, also incompatible
           }
           const tabBox = window.document.getElementById("event-grid-tab-vbox");
