@@ -34,7 +34,7 @@ var ex_tcp = class extends ExtensionCommon.ExtensionAPI {
           
           // Creating the underlying socket -----------------------------------
 
-          const socket = stService.createTransport([], host, port, null);
+          const socket = stService.createTransport([], host, port, null, null);
           unclosedSockets.push(socket);
           if (options.hasOwnProperty("connect_timeout")) {
             socket.setTimeout(Ci.nsISocketTransport.TIMEOUT_CONNECT,
