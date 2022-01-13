@@ -250,21 +250,46 @@ var ex_customui = class extends ExtensionCommon.ExtensionAPI {
       return result;
     };
 
+    // Enables dynamic width and fixed heigth for a WebExtension frame
+    const setWebextFrameSizesForSidebar = function(frame, options) {
+      setWebextFrameSizesForBox(frame, options, true, "244px", false, "100%")
+    }
+
     // Enables dynamic height and fixed 100% width for a WebExtension frame
     const setWebextFrameSizesForVerticalBox = function(frame, options) {
-      frame.width = "100%";
-      frame.height = (options.height || 100) + "px";
-      frame.style.display = options.hidden ? "none" : "block";
+      setWebextFrameSizesForBox(frame, options, false, "100%", true, "100px");
+    }
+
+    const setWebextFrameDynamicDimension = function(frame, options, dimensionName, defaultValue) {
+      frame[dimensionName] = (options[dimensionName] || defaultValue) + "px";
       frame.addCustomUILocalOptionsListener(lOptions => {
-        if (typeof lOptions.height === "number") {
-          frame.height = lOptions.height + "px";
-          frame.style.height = frame.height;
+        if (typeof lOptions[dimensionName] === "number") {
+          frame[dimensionName] = lOptions[dimensionName] + "px";
+          frame.style[dimensionName] = frame[dimensionName];
         }
         if (typeof lOptions.hidden === "boolean") {
           frame.style.display = lOptions.hidden ? "none" : "block";
         }
       });
     };
+
+    const setWebextFrameFixedDimension = function(frame, dimensionName, value) {
+      frame[dimensionName] = value;
+    }
+
+    const setWebextFrameDimension = function(frame, options, dimensionName, isDynamic, value) {
+      if(isDynamic) {
+        setWebextFrameDynamicDimension(frame, options, dimensionName, value);
+      } else {
+        setWebextFrameFixedDimension(frame, dimensionName, value);
+      }
+    }
+
+    const setWebextFrameSizesForBox = function(frame, options, isDynamicWidth, width, isDynamicHeight, height) {
+      setWebextFrameDimension(frame, options, "width", isDynamicWidth, width);
+      setWebextFrameDimension(frame, options, "height", isDynamicHeight, height);
+      frame.style.display = options.hidden ? "none" : "block";
+    }
     
     // Creates and inserts the WebExtension frame for the given URL and location
     // id as element of a customUI-specific sidebar within the container given
@@ -273,7 +298,7 @@ var ex_customui = class extends ExtensionCommon.ExtensionAPI {
     // insertWebextFrame(). To remove frames created by this method, use
     // removeSidebarWebextFrame().
     const insertSidebarWebextFrame = function(location, url, document,
-        containerId) {
+        containerId, options) {
       const sidebarBoxId = "customui-sidebar-box-" + containerId;
       let sidebar = document.getElementById(sidebarBoxId);
       if (!sidebar) {
@@ -292,11 +317,11 @@ var ex_customui = class extends ExtensionCommon.ExtensionAPI {
         
         sidebar = document.createXULElement("vbox");
         sidebar.setAttribute("persist", "width");
-        sidebar.setAttribute("width", "244");
         sidebar.id = sidebarBoxId;
         container.appendChild(sidebar);
       }
       const result = insertWebextFrame(location, url, sidebar);
+      setWebextFrameSizesForSidebar(result, options);
       result.flex = "1";
       return result;
     };
@@ -556,7 +581,7 @@ var ex_customui = class extends ExtensionCommon.ExtensionAPI {
             return; // incompatible window
           }
           insertSidebarWebextFrame("compose", url, window.document,
-              "composeContentBox");
+              "composeContentBox", options);
         },
         uninjectFromWindow(window, url) {
           removeSidebarWebextFrame("compose", url, window.document);
@@ -571,7 +596,7 @@ var ex_customui = class extends ExtensionCommon.ExtensionAPI {
             return; // incompatible window
           }
           insertSidebarWebextFrame("messaging", url, window.document,
-              "messengerBox");
+              "messengerBox",options);
         },
         uninjectFromWindow(window, url) {
           removeSidebarWebextFrame("messaging", url, window.document);
