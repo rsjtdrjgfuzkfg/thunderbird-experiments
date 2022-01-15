@@ -257,7 +257,8 @@ var ex_customui = class extends ExtensionCommon.ExtensionAPI {
     // dimensionName: "width" or "height"
     // Only to be called by setWebextFrameDimension
     const setWebextFrameDynamicDimension = function(frame, options, dimensionName, defaultValue) {
-      frame[dimensionName] = (options[dimensionName] + "px" || defaultValue);
+      frame[dimensionName] = options[dimensionName]
+          ? options[dimensionName] + "px" : defaultValue;
       frame.addCustomUILocalOptionsListener(lOptions => {
         if (typeof lOptions[dimensionName] === "number") {
           frame[dimensionName] = lOptions[dimensionName] + "px";
