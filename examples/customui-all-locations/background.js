@@ -21,3 +21,13 @@
   }
 
 })().catch(console.error);
+
+
+// Permit frames to call customUI in the background context via message passing
+messenger.runtime.onMessage.addListener(async message => {
+  if (message.action == "invoke-customui") {
+    return await messenger.ex_customui[message.method].apply(
+        messenger.ex_customui, message.args);
+  }
+  console.error("Unexpected message", message);
+});
