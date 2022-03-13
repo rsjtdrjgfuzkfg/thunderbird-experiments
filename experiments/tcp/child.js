@@ -62,8 +62,40 @@ var ex_tcp = class extends ExtensionCommon.ExtensionAPI {
 
           // Completely fills the given ArrayBuffer with read data
           const readFully = async function(buffer) {
-            const remaining = buffer.byteLength;
-            while (socketIn.available() < remaining) {
+            let offset = 0;
+            let remaining = buffer.byteLength;
+            while (true) {
+              let bytesToRead = socketInBinary.available();
+              if (bytesToRead > 0) {
+                if (bytesToRead > remaining) {
+                  bytesToRead = remaining;
+                }
+                let read;
+                if (offset == 0) {
+                  read = socketInBinary.readArrayBuffer(bytesToRead, buffer);
+                } else {
+                  // There is no option to read to an offset, so we need to go
+                  // through a temporary buffer living in the same privilege
+                  // level.
+                  let tempArray = new context.cloneScope.Uint8Array(
+                      new context.cloneScope.ArrayBuffer(bytesToRead));
+                  read = socketInBinary.readArrayBuffer(bytesToRead,
+                      tempArray.buffer);
+                  if (read > 0) {
+                    let bufferArray = new context.cloneScope.Uint8Array(buffer,
+                        offset, bytesToRead);
+                    bufferArray.set(tempArray);
+                  }
+                }
+                if (read != bytesToRead) {
+                  throw Error("Could not read available bytes into buffer");
+                }
+                remaining -= read;
+                if (remaining <= 0) {
+                  break;
+                }
+                offset += read;
+              }
               await new Promise(resolve => socketIn.asyncWait({
                   QueryInterface: ChromeUtils.generateQI([
                       Ci.nsIInputStreamCallback]),
@@ -71,10 +103,6 @@ var ex_tcp = class extends ExtensionCommon.ExtensionAPI {
                     resolve();
                   }
                 }, 0, remaining, tmService.mainThreadEventTarget));
-            }
-            if (socketInBinary.readArrayBuffer(remaining, buffer)
-                !== remaining) {
-              throw new Error("Could not read available bytes into buffer");
             }
           };
 
