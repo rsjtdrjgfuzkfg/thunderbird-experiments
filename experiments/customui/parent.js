@@ -14,8 +14,8 @@ var ex_customui = class extends ExtensionCommon.ExtensionAPI {
         "http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul";
 
     // Window monitoring helper ===============================================
-    // This permits monitoring of all kinds of windows, including those in
-    // iframes. Registered listeners are called for all loaded windows.
+    // This permits monitoring windows of real windows, tabs and iframes.
+    // Registered listeners are called for all loaded windows.
     const loadedWindows = []; // array of all currently loaded windows
     const windowLoadListeners = []; // array of all registered callbacks
     {
@@ -53,6 +53,27 @@ var ex_customui = class extends ExtensionCommon.ExtensionAPI {
            // not interested
         }
       };
+      const tabMonitor = {
+        // we're not interested in persisting any data, so having a fixed name
+        // is ok even though this experiment might be used by multiple add-ons
+        monitorName: "customUITabMonitor",
+        onTabTitleChanged(tab) {
+          // Re-register with the tab whenever the title changes; this keeps
+          // us up-to-date if the window in the tab changes. Registering the
+          // same window multiple times is not an issue as track loaded windows.
+          const tabWindow = (tab.browser || tab.iframe)?.contentWindow;
+          if (tabWindow) {
+            windowMonitor.onOpenWindow(tabWindow);
+          }
+        },
+        onTabOpened(tab, firstTab, oldTab) {
+          this.onTabTitleChanged(tab); // opening a tab requires us to load it
+        },
+        onTabClosing() {},
+        onTabPersist() {},
+        onTabRestored() {},
+        onTabSwitched() {}
+      };
       const unloadEventListener = function(event) {
         const index = loadedWindows.indexOf(event.currentTarget);
         if (index >= 0) {
@@ -66,41 +87,52 @@ var ex_customui = class extends ExtensionCommon.ExtensionAPI {
         loadedWindows.push(window);
         window.addEventListener("unload", unloadEventListener, {once: true});
 
-        // Find and monitor sub-windows in iframes
-        const isChromeIFrame = function(node) {
-          return node.tagName === "iframe" && node.namespaceURI === XULNS
-              && node.getAttribute("type") !== "content";
-        };
-        const mutationObserver = new window.MutationObserver(mutations => {
-          if (!active) {
-            // Unregister mutation observer on the next mutation after context
-            // close, as unregistering immediately would require us to keep
-            // track of all observers individually.
-            mutationObserver.disconnect();
-            return;
-          }
-          // This observation strategy could lead to observing the same window
-          // twice – but that's no problem as we only load once per window.
-          for (let mutation of mutations) {
-            if (mutation.type === "childList") {
-              for (let node of mutation.addedNodes) {
-                if (isChromeIFrame(node)) {
-                  windowMonitor.onOpenWindow(node.contentWindow);
-                }
-              }
-            } else if (mutation.type === "attributes") {
-              if (isChromeIFrame(mutation.target)
-                  && mutation.attributeName === "src") {
-                windowMonitor.onOpenWindow(mutation.target.contentWindow);
-              }
+        if (window.tabmail) {
+          // Main window: monitor tabs
+          window.tabmail.registerTabMonitor(tabMonitor);
+          for (let tab of window.tabmail.tabInfo) {
+            const tabWindow = (tab.browser || tab.iframe)?.contentWindow;
+            if (tabWindow) {
+              windowMonitor.onOpenWindow(tabWindow);
             }
           }
-        });
-        mutationObserver.observe(window.document,
-            { childList: true, attributes: true, subtree: true });
-        for (let iframe of window.document.getElementsByTagName("iframe")) {
-          if (isChromeIFrame(iframe)) {
-            windowMonitor.onOpenWindow(iframe.contentWindow);
+        } else {
+          // Other window: monitor iframes
+          const isChromeIFrame = function(node) {
+            return node.tagName === "iframe" && node.namespaceURI === XULNS
+                && node.getAttribute("type") !== "content";
+          };
+          const mutationObserver = new window.MutationObserver(mutations => {
+            if (!active) {
+              // Unregister mutation observer on the next mutation after context
+              // close, as unregistering immediately would require us to keep
+              // track of all observers individually.
+              mutationObserver.disconnect();
+              return;
+            }
+            // This observation strategy could lead to observing the same window
+            // twice – but that's no problem as we only load once per window.
+            for (let mutation of mutations) {
+              if (mutation.type === "childList") {
+                for (let node of mutation.addedNodes) {
+                  if (isChromeIFrame(node)) {
+                    windowMonitor.onOpenWindow(node.contentWindow);
+                  }
+                }
+              } else if (mutation.type === "attributes") {
+                if (isChromeIFrame(mutation.target)
+                    && mutation.attributeName === "src") {
+                  windowMonitor.onOpenWindow(mutation.target.contentWindow);
+                }
+              }
+            }
+          });
+          mutationObserver.observe(window.document,
+              { childList: true, attributes: true, subtree: true });
+          for (let iframe of window.document.getElementsByTagName("iframe")) {
+            if (isChromeIFrame(iframe)) {
+              windowMonitor.onOpenWindow(iframe.contentWindow);
+            }
           }
         }
 
@@ -118,6 +150,7 @@ var ex_customui = class extends ExtensionCommon.ExtensionAPI {
         active = false;
         Services.wm.removeListener(windowMonitor);
         for (let window of loadedWindows) {
+          window.tabmail?.unregisterTabMonitor(tabMonitor);
           window.removeEventListener("unload", unloadEventListener);
         }
       }});
@@ -389,12 +422,34 @@ var ex_customui = class extends ExtensionCommon.ExtensionAPI {
       locationHandlers.addressbook = makeLocationHandler({
         injectIntoWindow(window, url, options) {
           if (window.location.toString()
-              !== "chrome://messenger/content/addressbook/addressbook.xhtml") {
-            return; // incompatible window
+              === "chrome://messenger/content/addressbook/addressbook.xhtml") {
+            // Address book window (Thunderbird 91 and earlier)
+            const sidebar = window.document.getElementById("dirTreeBox");
+            const frame = insertWebextFrame("addressbook", url, sidebar);
+            setWebextFrameSizesForVerticalBox(frame, options);
+            return;
           }
-          const sidebar = window.document.getElementById("dirTreeBox");
-          const frame = insertWebextFrame("addressbook", url, sidebar);
-          setWebextFrameSizesForVerticalBox(frame, options);
+          if (window.location.toString() === "about:addressbook") {
+            // Address book tab (Thunderbird 102 and later)
+            // We cannot directly insert a browser in the tab, as the tab
+            // is not capable of handling remote browsers (only whitelisted
+            // tabs like about:addons can do that), so we hook below the
+            // browser in the main window:
+            const mainWindow = window.docShell.parent.domWindow;
+            const browserElement =
+                [...mainWindow.document.querySelectorAll("browser")]
+                .find(b => b.contentWindow == window);
+            if (!browserElement) {
+              console.warn("Cannot display custom UI below address book tab: "
+                  + "can't find browser for", window);
+              return;
+            }
+            // There is at most one address book tab per main window, so this
+            // is safe:
+            const frame = insertWebextFrame("addressbook",
+                url, browserElement.parentElement.parentElement);
+            setWebextFrameSizesForVerticalBox(frame, options);
+          }
         },
         uninjectFromWindow(window, url) {
           removeWebextFrame("addressbook", url, window.document);
