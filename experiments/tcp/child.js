@@ -4,130 +4,33 @@ var ex_tcp = class extends ExtensionCommon.ExtensionAPI {
     const Ci = Components.interfaces;
     const Cr = Components.results;
 
-    const { NetUtil } = ChromeUtils.import(
-        "resource://gre/modules/NetUtil.jsm");
-
-    const stService = Cc["@mozilla.org/network/socket-transport-service;1"]
-        .getService(Ci.nsISocketTransportService);
-    const tmService = Cc["@mozilla.org/thread-manager;1"].getService(
-        Ci.nsIThreadManager);
-    
-    let unclosedSockets = []; // sockets that have not yet been closed
-
-    context.callOnClose({close(){
-      for (let socket of unclosedSockets) {
-        console.warn("Aborting socket due to experiment shutdown", socket);
-        try {
-          socket.close(Cr.NS_ERROR_ABORT);
-        } catch (e) {
-          console.error(e);
-        }
-      }
-      unclosedSockets = [];
-    }});
 
     return {
       ex_tcp: {
         connect(host, port, options) {
-          options = options ? options : {};
-
-          
-          // Creating the underlying socket -----------------------------------
-
-          const socket = stService.createTransport([], host, port, null, null);
-          unclosedSockets.push(socket);
-          if (options.hasOwnProperty("connect_timeout")) {
-            socket.setTimeout(Ci.nsISocketTransport.TIMEOUT_CONNECT,
-                options.connect_timeout);
-          }
-          if (options.hasOwnProperty("timeout")) {
-            socket.setTimeout(Ci.nsISocketTransport.TIMEOUT_READ_WRITE,
-                options.timeout);
-          }
-          const socketIn = socket.openInputStream(0, 0, 0).QueryInterface(
-              Ci.nsIAsyncInputStream);
-          const socketInBinary = Cc["@mozilla.org/binaryinputstream;1"]
-              .createInstance(Ci.nsIBinaryInputStream);
-          socketInBinary.setInputStream(socketIn)
-          const socketOut = socket.openOutputStream(
-              Ci.nsITransport.OPEN_UNBUFFERED, 0, 0);
-
+          const socketIndexPromise =
+              context.childManager.callParentAsyncFunction("ex_tcp._connect",
+                [host, port, options]);
          
           // Public API of the result object ----------------------------------
 
-          // Reads into an ArrayBuffer, returns the number of bytes read
-          const read = async function(buffer) {
-            return socketInBinary.readArrayBuffer(buffer.byteLength, buffer);
-          };
-
-          // Completely fills the given ArrayBuffer with read data
-          const readFully = async function(buffer) {
-            let offset = 0;
-            let remaining = buffer.byteLength;
-            while (true) {
-              let bytesToRead = socketInBinary.available();
-              if (bytesToRead > 0) {
-                if (bytesToRead > remaining) {
-                  bytesToRead = remaining;
-                }
-                let read;
-                if (offset == 0) {
-                  read = socketInBinary.readArrayBuffer(bytesToRead, buffer);
-                } else {
-                  // There is no option to read to an offset, so we need to go
-                  // through a temporary buffer living in the same privilege
-                  // level.
-                  let tempArray = new context.cloneScope.Uint8Array(
-                      new context.cloneScope.ArrayBuffer(bytesToRead));
-                  read = socketInBinary.readArrayBuffer(bytesToRead,
-                      tempArray.buffer);
-                  if (read > 0) {
-                    let bufferArray = new context.cloneScope.Uint8Array(buffer,
-                        offset, bytesToRead);
-                    bufferArray.set(tempArray);
-                  }
-                }
-                if (read != bytesToRead) {
-                  throw Error("Could not read available bytes into buffer");
-                }
-                remaining -= read;
-                if (remaining <= 0) {
-                  break;
-                }
-                offset += read;
-              }
-              await new Promise(resolve => socketIn.asyncWait({
-                  QueryInterface: ChromeUtils.generateQI([
-                      Ci.nsIInputStreamCallback]),
-                  onInputStreamReady() {
-                    resolve();
-                  }
-                }, 0, remaining, tmService.mainThreadEventTarget));
-            }
+          // Reads a fixed number of byte into a fresh ArrayBuffer of the given
+          // length
+          const read = async function(byteLength) {
+            return await context.childManager.callParentAsyncFunction(
+                  "ex_tcp._read", [await socketIndexPromise, byteLength]);
           };
 
           // Writes the content of the given ArrayBuffer
           const write = async function(buffer) {
-            const stream = Cc["@mozilla.org/io/arraybuffer-input-stream;1"]
-                .createInstance(Ci.nsIArrayBufferInputStream);
-            stream.setData(buffer, 0, buffer.byteLength);
-            const bstream = Cc["@mozilla.org/binaryinputstream;1"]
-                .createInstance(Ci.nsIBinaryInputStream);
-            bstream.setInputStream(stream);
-            const status = await new Promise(resolve => NetUtil.asyncCopy(
-                bstream, socketOut, resolve));
-            if (!Components.isSuccessCode(status)) {
-              throw new Error("Could not write bytes onto socket");
-            }
+            await context.childManager.callParentAsyncFunction(
+              "ex_tcp._write", [await socketIndexPromise, buffer]);
           };
 
           // Closes the socket
           const close = async function() {
-              socket.close(Cr.NS_OK);
-              const index = unclosedSockets.indexOf(socket);
-              if (index >= 0) {
-                unclosedSockets.splice(index, 1);
-              }
+            await context.childManager.callParentAsyncFunction(
+              "ex_tcp._close", [await socketIndexPromise]);
           };
 
           
@@ -138,7 +41,6 @@ var ex_tcp = class extends ExtensionCommon.ExtensionAPI {
           };
           return context.cloneScope.Promise.resolve(Cu.cloneInto({
             read: wrapAsyncFunction(read),
-            readFully: wrapAsyncFunction(readFully),
             write: wrapAsyncFunction(write),
             close: wrapAsyncFunction(close),
           }, context.cloneScope, {cloneFunctions: true}));
