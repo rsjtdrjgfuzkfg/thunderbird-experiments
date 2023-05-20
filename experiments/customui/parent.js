@@ -61,7 +61,8 @@ var ex_customui = class extends ExtensionCommon.ExtensionAPI {
           // Re-register with the tab whenever the title changes; this keeps
           // us up-to-date if the window in the tab changes. Registering the
           // same window multiple times is not an issue as track loaded windows.
-          const tabWindow = (tab.browser || tab.iframe)?.contentWindow;
+          const tabWindow = (tab.chromeBrowser || tab.browser
+              || tab.iframe)?.contentWindow;
           if (tabWindow) {
             windowMonitor.onOpenWindow(tabWindow);
           }
@@ -91,7 +92,8 @@ var ex_customui = class extends ExtensionCommon.ExtensionAPI {
           // Main window: monitor tabs
           window.tabmail.registerTabMonitor(tabMonitor);
           for (let tab of window.tabmail.tabInfo) {
-            const tabWindow = (tab.browser || tab.iframe)?.contentWindow;
+            const tabWindow = (tab.chromeBrowser || tab.browser
+                || tab.iframe)?.contentWindow;
             if (tabWindow) {
               windowMonitor.onOpenWindow(tabWindow);
             }
@@ -300,6 +302,7 @@ var ex_customui = class extends ExtensionCommon.ExtensionAPI {
     const setWebextFrameDynamicDimension = function(frame, options,
         dimensionName, defaultValue) {
       frame[dimensionName] = (options[dimensionName] || defaultValue) + "px";
+      frame.style[dimensionName] = frame[dimensionName];
       frame.addCustomUILocalOptionsListener(lOptions => {
         if (typeof lOptions[dimensionName] === "number") {
           frame[dimensionName] = lOptions[dimensionName] + "px";
@@ -312,36 +315,50 @@ var ex_customui = class extends ExtensionCommon.ExtensionAPI {
     // WebExtension frame registered with given options
     const setWebextFrameSizesForVerticalBox = function(frame, options) {
       frame.width = "100%";
+      frame.style.width = frame.width;
       setWebextFrameDynamicVisibility(frame, options);
       setWebextFrameDynamicDimension(frame, options, "height", 100);
     }
     
-    // Creates and inserts the WebExtension frame with additional user provided options
-    // for the given URL and location id as element of a customUI-specific sidebar
-    // within the container given by a document and the container's id.
-    // Returns an element containing the new frame and supporting
-    // all functions documented for insertWebextFrame().
+    // Creates and inserts the WebExtension frame with additional user provided
+    // options for the given URL and location id as element of a
+    // customUI-specific sidebar within the container given by a document and
+    // the container.
+    // Returns an element containing the new frame and supporting all functions
+    // documented for insertWebextFrame().
     // To remove frames created by this method, use removeSidebarWebextFrame().
     const insertSidebarWebextFrame = function(location, url, document,
-        containerId, options) {
-      const sidebarBoxId = "customui-sidebar-box-" + containerId;
+        container, options) {
+      const isXUL = container.namespaceURI
+          === "http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul";
+      const sidebarBoxId = "customui-sidebar-box-" + location;
       let sidebar = document.getElementById(sidebarBoxId);
       if (!sidebar) {
-        const container = document.getElementById(containerId);
+        if (isXUL) {
+          // XUL container, use XUL splitter + vbox
+          const splitter = document.createXULElement("splitter");
+          splitter.style["border-inline-end-width"] = "0";
+          splitter.style["border-inline-start"] =
+              "1px solid var(--splitter-color)";
+          splitter.style["min-width"] = "0";
+          splitter.style["width"] = "5px";
+          splitter.style["background-color"] = "transparent";
+          splitter.style["margin-inline-end"] = "-5px";
+          splitter.style["position"] = "relative";
+          container.appendChild(splitter);
 
-        const splitter = document.createXULElement("splitter");
-        splitter.style["border-inline-end-width"] = "0";
-        splitter.style["border-inline-start"] =
-            "1px solid var(--splitter-color)";
-        splitter.style["min-width"] = "0";
-        splitter.style["width"] = "5px";
-        splitter.style["background-color"] = "transparent";
-        splitter.style["margin-inline-end"] = "-5px";
-        splitter.style["position"] = "relative";
-        container.appendChild(splitter);           
+          sidebar = document.createXULElement("vbox");
+          sidebar.setAttribute("persist", "width");
+        } else {
+          // non-XUL container, use a fixed div for now
+          sidebar = document.createElement("div");
+          sidebar.style.height = "100%";
+          sidebar.style.width = "244px";
+          sidebar.style.display = "flex";
+          sidebar.style.flexDirection = "column";
+          sidebar.style.gridRow = "1/-1"; // in case we're in a grid
+        }
         
-        sidebar = document.createXULElement("vbox");
-        sidebar.setAttribute("persist", "width");
         sidebar.id = sidebarBoxId;
         container.appendChild(sidebar);
       }
@@ -352,7 +369,11 @@ var ex_customui = class extends ExtensionCommon.ExtensionAPI {
       // Core inclusion might want to address these issues.
       setWebextFrameDynamicVisibility(result, options);
       setWebextFrameDynamicDimension(result, options, "width", 244);
-      result.flex = "1";
+      if (isXUL) {
+        result.flex = "1";
+      } else {
+        result.style.flexBasis = "100%";
+      }
       return result;
     };
 
@@ -633,7 +654,7 @@ var ex_customui = class extends ExtensionCommon.ExtensionAPI {
             return; // incompatible window
           }
           insertSidebarWebextFrame("compose", url, window.document,
-              "composeContentBox", options);
+              window.document.getElementById("composeContentBox"), options);
         },
         uninjectFromWindow(window, url) {
           removeSidebarWebextFrame("compose", url, window.document);
@@ -643,12 +664,19 @@ var ex_customui = class extends ExtensionCommon.ExtensionAPI {
       // Messaging ------------------------------------------------------------
       locationHandlers.messaging = makeLocationHandler({
         injectIntoWindow(window, url, options) {
-          if (window.location.toString() !== "chrome://messenger/content/"
+          if (window.location.toString() === "chrome://messenger/content/"
               + "messenger.xhtml") {
-            return; // incompatible window
+            // Before TB 115 (Supernova UI): inject into main window
+            const messengerBox = window.document.getElementById("messengerBox");
+            if (messengerBox) {
+              insertSidebarWebextFrame("messaging", url, window.document,
+                  messengerBox, options);
+            }
+          } else if (window.location.toString() === "about:3pane") {
+            // TB 115 (Supernova UI): inject into the messaging tab
+            insertSidebarWebextFrame("messaging", url, window.document,
+                window.document.body, options);
           }
-          insertSidebarWebextFrame("messaging", url, window.document,
-              "messengerBox", options);
         },
         uninjectFromWindow(window, url) {
           removeSidebarWebextFrame("messaging", url, window.document);
