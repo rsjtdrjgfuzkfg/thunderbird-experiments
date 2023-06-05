@@ -16,8 +16,8 @@ var ex_cachingfix = class extends ExtensionCommon.ExtensionAPI {
       }
     }
     // Clear caches that could prevent upgrades from working properly
-    const { Services } = ChromeUtils.import(
-        "resource://gre/modules/Services.jsm");
+    const Services = globalThis.Services || 
+      ChromeUtils.import("resource://gre/modules/Services.jsm").Services;
     Services.obs.notifyObservers(null, "startupcache-invalidate", null);
   }
   getAPI(context) {
