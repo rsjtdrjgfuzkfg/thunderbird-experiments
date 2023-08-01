@@ -2,10 +2,10 @@
   "experiment_apis": {
     "ex_osfile": {
       "schema": "experiments/osfile/api.json",
-      "child": {
-        "scopes": ["addon_child"],
+      "parent": {
+        "scopes": ["addon_parent"],
         "paths": [["ex_osfile"]],
-        "script": "experiments/osfile/child.js"
+        "script": "experiments/osfile/parent.js"
       }
     }
   }
